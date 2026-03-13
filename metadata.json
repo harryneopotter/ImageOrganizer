@@ -1,0 +1,7 @@
+{
+  "name": "Gemini Lens: Bulk Image Categorizer",
+  "description": "A professional-grade tool to analyze, describe, and categorize thousands of images using Gemini 3 Flash. Features batch processing, smart tagging, and visual data analytics.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
