@@ -3,6 +3,7 @@ export interface AnalysisResult {
   id: string;
   fileName: string;
   url: string;
+  fileType: string;
   category: string;
   description: string;
   tags: string[];

@@ -16,7 +16,7 @@ import {
   PieChart
 } from 'lucide-react';
 import { AnalysisResult, ProcessingMode } from './types';
-import { analyzeImage } from './services/geminiService';
+import { analyzeFile } from './services/geminiService';
 import ImageCard from './components/ImageCard';
 import StatsDashboard from './components/StatsDashboard';
 
@@ -29,22 +29,35 @@ const App: React.FC = () => {
   const [newCategory, setNewCategory] = useState('');
   const [filterText, setFilterText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedFileType, setSelectedFileType] = useState<string>('All');
   
   const processingQueueRef = useRef<string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const getFileType = (mime: string) => {
+    if (mime.startsWith('image/')) return 'Image';
+    if (mime.startsWith('audio/')) return 'Audio';
+    if (mime.startsWith('video/')) return 'Video';
+    if (mime.includes('pdf') || mime.startsWith('text/')) return 'Document';
+    return 'Other';
+  };
 
   // File input handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    const validFiles = Array.from(files).filter(file => {
+      const type = file.type;
+      return type.startsWith('image/') || type.startsWith('audio/') || type.startsWith('video/') || type.includes('pdf') || type.startsWith('text/');
+    });
 
     // Fix: Explicitly type the map callback parameters as File to avoid 'unknown' type errors (Error lines 42, 43)
-    const newEntries: AnalysisResult[] = imageFiles.map((file: File) => ({
+    const newEntries: AnalysisResult[] = validFiles.map((file: File) => ({
       id: Math.random().toString(36).substr(2, 9),
       fileName: file.name,
       url: URL.createObjectURL(file),
+      fileType: getFileType(file.type),
       category: '',
       description: '',
       tags: [],
@@ -56,7 +69,7 @@ const App: React.FC = () => {
     setResults(prev => [...prev, ...newEntries]);
     // Store actual file blobs for processing
     (window as any)._fileCache = { ...(window as any)._fileCache, ...newEntries.reduce((acc, entry, i) => {
-      acc[entry.id] = imageFiles[i];
+      acc[entry.id] = validFiles[i];
       return acc;
     }, {} as any) };
   };
@@ -95,7 +108,7 @@ const App: React.FC = () => {
 
       try {
         const { base64, mimeType } = await fileToToDataURL(file);
-        const analysis = await analyzeImage(base64, mimeType, categories);
+        const analysis = await analyzeFile(base64, mimeType, categories);
         
         setResults(prev => prev.map(r => r.id === id ? {
           ...r,
@@ -136,7 +149,8 @@ const App: React.FC = () => {
                          r.description.toLowerCase().includes(filterText.toLowerCase()) ||
                          r.tags.some(t => t.toLowerCase().includes(filterText.toLowerCase()));
     const matchesCategory = selectedCategory === 'All' || r.category === selectedCategory;
-    return matchesFilter && matchesCategory;
+    const matchesFileType = selectedFileType === 'All' || r.fileType === selectedFileType;
+    return matchesFilter && matchesCategory && matchesFileType;
   });
 
   const stats = {
@@ -227,7 +241,7 @@ const App: React.FC = () => {
         <div class="container">
           <div class="header">
             <h1>Gemini Lens Report</h1>
-            <p>Generated on ${new Date().toLocaleString()} &bull; ${completed.length} images categorized</p>
+            <p>Generated on ${new Date().toLocaleString()} &bull; ${completed.length} files categorized</p>
           </div>
           
           <div class="card">
@@ -236,7 +250,7 @@ const App: React.FC = () => {
           </div>
           
           <div class="card">
-            <h2>Image Details</h2>
+            <h2>File Details</h2>
             <input type="text" id="searchInput" class="search-box" onkeyup="filterTable()" placeholder="Search files, tags, categories...">
             <div class="table-container">
               <table>
@@ -293,19 +307,19 @@ const App: React.FC = () => {
             </h1>
           </div>
           <p className="text-slate-400 max-w-lg">
-            High-speed local image analysis. Organize thousands of photos into smart categories with Google's most efficient vision model.
+            High-speed local file analysis. Organize thousands of files into smart categories with Google's most efficient vision model.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
           <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-800 transition-colors">
             <ImageIcon className="w-4 h-4 text-blue-400" />
-            <span className="text-sm font-medium">Add Images</span>
+            <span className="text-sm font-medium">Add Files</span>
             <input 
               type="file" 
               multiple 
               className="hidden" 
-              accept="image/*"
+              accept="image/*,audio/*,video/*,.pdf,text/*"
               onChange={handleFileChange}
             />
           </label>
@@ -318,7 +332,7 @@ const App: React.FC = () => {
               multiple 
               {...{ webkitdirectory: "true", directory: "true" } as any}
               className="hidden" 
-              accept="image/*"
+              accept="image/*,audio/*,video/*,.pdf,text/*"
               onChange={handleFileChange}
             />
           </label>
@@ -406,7 +420,7 @@ const App: React.FC = () => {
               </h3>
               <input 
                 type="text"
-                placeholder="Search images, tags..."
+                placeholder="Search files, tags..."
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
@@ -419,6 +433,18 @@ const App: React.FC = () => {
                 {allCategories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
+              </select>
+              <select 
+                value={selectedFileType}
+                onChange={(e) => setSelectedFileType(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
+              >
+                <option value="All">All File Types</option>
+                <option value="Image">Images</option>
+                <option value="Audio">Audio</option>
+                <option value="Video">Video</option>
+                <option value="Document">Documents</option>
+                <option value="Other">Other</option>
               </select>
             </div>
 
@@ -476,19 +502,19 @@ const App: React.FC = () => {
                 <ImageIcon className="w-8 h-8 text-slate-700" />
               </div>
               <div className="space-y-1">
-                <h4 className="text-lg font-medium text-slate-200">No images loaded</h4>
+                <h4 className="text-lg font-medium text-slate-200">No files loaded</h4>
                 <p className="text-sm text-slate-500 max-w-xs">
-                  Drag and drop a folder or select files to start your bulk image categorization project.
+                  Drag and drop a folder or select files to start your bulk categorization project.
                 </p>
               </div>
               <div className="flex gap-4">
                 <label className="px-6 py-2 bg-slate-800 text-slate-200 rounded-xl hover:bg-slate-700 cursor-pointer text-sm transition-all border border-slate-700">
                   Browse Files
-                  <input type="file" multiple className="hidden" accept="image/*" onChange={handleFileChange} />
+                  <input type="file" multiple className="hidden" accept="image/*,audio/*,video/*,.pdf,text/*" onChange={handleFileChange} />
                 </label>
                 <label className="px-6 py-2 bg-slate-800 text-slate-200 rounded-xl hover:bg-slate-700 cursor-pointer text-sm transition-all border border-slate-700">
                   Browse Folder
-                  <input type="file" multiple {...{ webkitdirectory: "true", directory: "true" } as any} className="hidden" accept="image/*" onChange={handleFileChange} />
+                  <input type="file" multiple {...{ webkitdirectory: "true", directory: "true" } as any} className="hidden" accept="image/*,audio/*,video/*,.pdf,text/*" onChange={handleFileChange} />
                 </label>
               </div>
             </div>

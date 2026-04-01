@@ -9,15 +9,15 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Increase payload limit to handle base64 images
+  // Increase payload limit to handle base64 files
   app.use(express.json({ limit: '50mb' }));
 
-  // API Route for image analysis
+  // API Route for file analysis
   app.post('/api/analyze', async (req, res) => {
     try {
       const { base64, mimeType, categories } = req.body;
       
-      let systemInstruction = "You are a highly efficient image categorization AI. Analyze the image and provide a category, a brief description, and relevant tags.";
+      let systemInstruction = "You are a highly efficient file categorization AI. Analyze the file and provide a category, a brief description, and relevant tags.";
       if (categories && categories.length > 0) {
         systemInstruction += ` You MUST choose exactly one category from this list: ${categories.join(', ')}.`;
       }
@@ -31,7 +31,7 @@ async function startServer() {
               mimeType: mimeType
             }
           },
-          "Analyze this image and return JSON with category, description, tags, and confidence (0-1)."
+          "Analyze this file and return JSON with category, description, tags, and confidence (0-1)."
         ],
         config: {
           systemInstruction,
@@ -39,8 +39,8 @@ async function startServer() {
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              category: { type: Type.STRING, description: "The category of the image." },
-              description: { type: Type.STRING, description: "A brief description of the image." },
+              category: { type: Type.STRING, description: "The category of the file." },
+              description: { type: Type.STRING, description: "A brief description of the file." },
               tags: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Relevant tags." },
               confidence: { type: Type.NUMBER, description: "Confidence score between 0 and 1." }
             },
@@ -56,7 +56,7 @@ async function startServer() {
       res.json(result);
 
     } catch (error) {
-      console.error("Error analyzing image:", error);
+      console.error("Error analyzing file:", error);
       res.status(500).json({ error: String(error) });
     }
   });

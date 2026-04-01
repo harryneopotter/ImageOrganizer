@@ -1,5 +1,5 @@
 
-export const analyzeImage = async (
+export const analyzeFile = async (
   base64Data: string,
   mimeType: string,
   categories: string[] = []
@@ -18,7 +18,7 @@ export const analyzeImage = async (
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to analyze image');
+    throw new Error(errorData.error || 'Failed to analyze file');
   }
 
   return await response.json();
